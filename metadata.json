@@ -1,0 +1,5 @@
+{
+  "name": "SentinelAI SOC Analyst",
+  "description": "An intelligent Security Operations Center agent that provides personalized threat analysis and incident response recommendations based on your organization's specific tech stack.",
+  "requestFramePermissions": []
+}
