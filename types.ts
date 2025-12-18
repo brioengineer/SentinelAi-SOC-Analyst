@@ -23,6 +23,31 @@ export interface SecurityAlert {
   rawLogs: string;
 }
 
+export interface ThreatIntel {
+  indicator: string;
+  type: 'IP' | 'Domain' | 'Hash';
+  reputation: 'Malicious' | 'Suspicious' | 'Clean' | 'Unknown';
+  source: string;
+  lastSeen: string;
+  details: string;
+}
+
+export interface AssetContext {
+  hostname: string;
+  owner: string;
+  criticality: 'Low' | 'Medium' | 'High' | 'Mission Critical';
+  vulnerabilities: string[];
+  os: string;
+  location: string;
+}
+
+export interface PlaybookStep {
+  action: string;
+  status: 'Completed' | 'Pending' | 'Failed';
+  result: string;
+  timestamp: string;
+}
+
 export interface AnalysisReport {
   summary: string;
   severity: Severity;
@@ -31,6 +56,10 @@ export interface AnalysisReport {
   investigationQueries: string[];
   potentialImpact: string;
   confidenceScore: number;
+  // New enriched fields
+  threatIntel: ThreatIntel[];
+  assetContext?: AssetContext;
+  playbookTimeline: PlaybookStep[];
 }
 
 export interface AnalysisHistoryItem {

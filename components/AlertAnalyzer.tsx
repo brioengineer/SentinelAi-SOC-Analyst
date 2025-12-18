@@ -16,6 +16,7 @@ const AlertAnalyzer: React.FC<AlertAnalyzerProps> = ({ stack, onAnalysisComplete
     timestamp: new Date().toISOString()
   });
   const [loading, setLoading] = useState(false);
+  const [loadingMsg, setLoadingMsg] = useState('Initiating analysis engine...');
   const [error, setError] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
@@ -26,6 +27,7 @@ const AlertAnalyzer: React.FC<AlertAnalyzerProps> = ({ stack, onAnalysisComplete
 
     setLoading(true);
     setError(null);
+    setLoadingMsg('Analyzing raw log signals...');
 
     try {
       const fullAlert: SecurityAlert = {
@@ -36,10 +38,11 @@ const AlertAnalyzer: React.FC<AlertAnalyzerProps> = ({ stack, onAnalysisComplete
         rawLogs: alert.rawLogs || ''
       };
       
-      const report = await analyzeAlert(fullAlert, stack);
+      const report = await analyzeAlert(fullAlert, stack, (msg) => {
+        setLoadingMsg(msg);
+      });
       onAnalysisComplete(fullAlert, report);
       
-      // Reset form
       setAlert({
         title: '',
         source: 'Manual Submission',
@@ -50,18 +53,18 @@ const AlertAnalyzer: React.FC<AlertAnalyzerProps> = ({ stack, onAnalysisComplete
       setError(err.message || "An error occurred during analysis.");
     } finally {
       setLoading(false);
+      setLoadingMsg('Initiating analysis engine...');
     }
   };
 
   return (
     <div className="max-w-5xl mx-auto animate-fadeIn">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Input Section */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
             <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
               <i className="fas fa-terminal text-indigo-500"></i>
-              New Alert Triage
+              Incident Triage Console
             </h3>
             
             <div className="space-y-4">
@@ -69,7 +72,7 @@ const AlertAnalyzer: React.FC<AlertAnalyzerProps> = ({ stack, onAnalysisComplete
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Alert Title</label>
                 <input
                   type="text"
-                  placeholder="e.g. Unusual login from restricted geography"
+                  placeholder="e.g. Brute Force attempt against Finance Web App"
                   value={alert.title}
                   onChange={(e) => setAlert({ ...alert, title: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all"
@@ -97,21 +100,26 @@ const AlertAnalyzer: React.FC<AlertAnalyzerProps> = ({ stack, onAnalysisComplete
               <button
                 onClick={handleAnalyze}
                 disabled={loading}
-                className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all duration-300 ${
+                className={`w-full py-4 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-all duration-300 ${
                   loading 
-                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700' 
                     : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 active:scale-[0.98]'
                 }`}
               >
                 {loading ? (
                   <>
-                    <i className="fas fa-spinner fa-spin"></i>
-                    Analyzing with Gemini Engine...
+                    <div className="flex items-center gap-3">
+                      <i className="fas fa-spinner fa-spin"></i>
+                      <span>AI Analyst Working...</span>
+                    </div>
+                    <span className="text-[10px] font-medium text-indigo-400 uppercase tracking-widest animate-pulse">{loadingMsg}</span>
                   </>
                 ) : (
                   <>
-                    <i className="fas fa-bolt"></i>
-                    Perform Threat Analysis
+                    <div className="flex items-center gap-3">
+                      <i className="fas fa-bolt"></i>
+                      <span>Analyze & Trigger Playbooks</span>
+                    </div>
                   </>
                 )}
               </button>
@@ -119,55 +127,37 @@ const AlertAnalyzer: React.FC<AlertAnalyzerProps> = ({ stack, onAnalysisComplete
           </div>
         </div>
 
-        {/* Info/Examples Sidebar */}
         <div className="space-y-6">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-            <h4 className="text-sm font-bold text-white mb-4 uppercase tracking-widest">Active Context</h4>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center text-sm p-3 bg-slate-950 rounded-lg border border-slate-800">
-                <span className="text-slate-500">SIEM</span>
-                <span className="text-indigo-400 font-medium">{stack.siem}</span>
+            <h4 className="text-sm font-bold text-white mb-4 uppercase tracking-widest">Enrichment Sources</h4>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 text-sm p-3 bg-slate-950 rounded-lg border border-slate-800">
+                <i className="fas fa-check-circle text-emerald-500 text-xs"></i>
+                <span className="text-slate-400">VirusTotal / AbuseIPDB</span>
               </div>
-              <div className="flex justify-between items-center text-sm p-3 bg-slate-950 rounded-lg border border-slate-800">
-                <span className="text-slate-500">EDR</span>
-                <span className="text-indigo-400 font-medium">{stack.edr}</span>
+              <div className="flex items-center gap-3 text-sm p-3 bg-slate-950 rounded-lg border border-slate-800">
+                <i className="fas fa-check-circle text-emerald-500 text-xs"></i>
+                <span className="text-slate-400">ServiceNow CMDB</span>
               </div>
-              <div className="flex justify-between items-center text-sm p-3 bg-slate-950 rounded-lg border border-slate-800">
-                <span className="text-slate-500">Cloud</span>
-                <span className="text-indigo-400 font-medium">{stack.cloud}</span>
+              <div className="flex items-center gap-3 text-sm p-3 bg-slate-950 rounded-lg border border-slate-800">
+                <i className="fas fa-check-circle text-emerald-500 text-xs"></i>
+                <span className="text-slate-400">Qualys Vulnerability Feed</span>
               </div>
             </div>
-            <p className="mt-4 text-xs text-slate-500 italic">
-              AI analysis is tuned for these specific technologies.
-            </p>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-            <h4 className="text-sm font-bold text-white mb-4 uppercase tracking-widest">Quick Templates</h4>
+            <h4 className="text-sm font-bold text-white mb-4 uppercase tracking-widest">Available Playbooks</h4>
             <div className="space-y-2">
-              <button 
-                onClick={() => setAlert({ 
-                  title: 'Suspicious CloudTrail Activity', 
-                  rawLogs: JSON.stringify({
-                    "eventVersion": "1.08",
-                    "userIdentity": { "type": "IAMUser", "userName": "malicious_actor" },
-                    "eventName": "DeleteBucket",
-                    "sourceIPAddress": "1.2.3.4"
-                  }, null, 2) 
-                })}
-                className="w-full text-left text-xs p-3 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors text-slate-300"
-              >
-                AWS Resource Deletion
-              </button>
-              <button 
-                onClick={() => setAlert({ 
-                  title: 'EDR Malicious File Detected', 
-                  rawLogs: 'Endpoint: LAPTOP-SOC-01\nDetection: Mimikatz\nProcess: lsass.exe\nAction: Blocked\nUser: JDoe'
-                })}
-                className="w-full text-left text-xs p-3 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors text-slate-300"
-              >
-                Endpoint Malware
-              </button>
+              <div className="text-xs p-3 bg-indigo-500/5 text-indigo-300 rounded-lg border border-indigo-500/20">
+                <i className="fas fa-shield-virus mr-2"></i> Malware Outbreak Response
+              </div>
+              <div className="text-xs p-3 bg-indigo-500/5 text-indigo-300 rounded-lg border border-indigo-500/20">
+                <i className="fas fa-user-shield mr-2"></i> Account Compromise (BEC)
+              </div>
+              <div className="text-xs p-3 bg-indigo-500/5 text-indigo-300 rounded-lg border border-indigo-500/20">
+                <i className="fas fa-network-wired mr-2"></i> Brute Force Mitigation
+              </div>
             </div>
           </div>
         </div>
