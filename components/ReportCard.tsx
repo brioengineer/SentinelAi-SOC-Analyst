@@ -4,7 +4,7 @@ import { AnalysisReport, Severity, SecurityAlert } from '../types';
 
 interface ReportCardProps {
   alert: SecurityAlert;
-  report: AnalysisReport;
+  report: AnalysisReport & { sources?: any[] };
   onClose: () => void;
 }
 
@@ -31,10 +31,10 @@ const ReportCard: React.FC<ReportCardProps> = ({ alert, report, onClose }) => {
         </button>
         <div className="flex gap-2">
           <button className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm hover:bg-slate-700 transition-colors">
-            <i className="fas fa-download mr-2"></i> Export Report
+            <i className="fas fa-print mr-2"></i> Case File
           </button>
-          <button className="px-4 py-2 bg-indigo-600 rounded-lg text-sm hover:bg-indigo-500 transition-colors">
-            <i className="fas fa-check mr-2"></i> Acknowledge Incident
+          <button className="px-4 py-2 bg-indigo-600 rounded-lg text-sm hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/30">
+            <i className="fas fa-check-circle mr-2"></i> Close Incident
           </button>
         </div>
       </div>
@@ -43,25 +43,59 @@ const ReportCard: React.FC<ReportCardProps> = ({ alert, report, onClose }) => {
         {/* Main Analysis Column */}
         <div className="lg:col-span-3 space-y-6">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
-            <div className="p-8 border-b border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/20">
+            <div className="p-8 border-b border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/30">
               <div className="flex items-center gap-4 mb-4">
                 <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border-2 ${getSeverityColor(report.severity)}`}>
                   {report.severity}
                 </span>
-                <span className="text-slate-500 text-sm">{new Date(alert.timestamp).toLocaleString()}</span>
+                <span className="text-slate-500 text-sm flex items-center gap-2">
+                  <i className="fas fa-globe-americas"></i>
+                  Live Search Enabled
+                </span>
               </div>
               <h2 className="text-3xl font-bold text-white mb-2">{alert.title}</h2>
               <p className="text-slate-300 text-lg leading-relaxed">{report.summary}</p>
             </div>
 
             <div className="p-8 space-y-10">
+              {/* Evidence Sources (Live Grounding) */}
+              {report.sources && report.sources.length > 0 && (
+                <section>
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-3">
+                    <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg">
+                      <i className="fas fa-link"></i>
+                    </div>
+                    Intelligence Sources & Evidence
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {report.sources.map((src, i) => (
+                      <a 
+                        key={i} 
+                        href={src.uri} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl hover:border-indigo-500/50 hover:bg-slate-900 transition-all group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500 group-hover:text-indigo-400">
+                          <i className="fas fa-external-link-alt text-xs"></i>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-300 truncate">{src.title || 'Threat Report'}</p>
+                          <p className="text-[10px] text-slate-500 truncate">{src.uri}</p>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {/* Automated Playbook Timeline */}
               <section>
                 <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-3">
                   <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg">
                     <i className="fas fa-robot"></i>
                   </div>
-                  Automated Playbook Execution
+                  Live Response Timeline
                 </h3>
                 <div className="relative pl-8 space-y-6 before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-px before:bg-slate-800">
                   {report.playbookTimeline.map((step, i) => (
@@ -76,9 +110,6 @@ const ReportCard: React.FC<ReportCardProps> = ({ alert, report, onClose }) => {
                       </div>
                     </div>
                   ))}
-                  {report.playbookTimeline.length === 0 && (
-                    <p className="text-sm text-slate-500 italic">No automated actions were triggered for this severity level.</p>
-                  )}
                 </div>
               </section>
 
@@ -86,15 +117,15 @@ const ReportCard: React.FC<ReportCardProps> = ({ alert, report, onClose }) => {
               <section>
                 <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-3">
                   <div className="p-2 bg-amber-500/10 text-amber-500 rounded-lg">
-                    <i className="fas fa-rss"></i>
+                    <i className="fas fa-microchip"></i>
                   </div>
-                  Threat Intel Enrichment
+                  Enriched Indicators (IOCs)
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {report.threatIntel.map((intel, i) => (
                     <div key={i} className="p-4 bg-slate-950 border border-slate-800 rounded-xl flex gap-4">
                       <div className={`p-3 rounded-lg h-fit ${intel.reputation === 'Malicious' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                        <i className={`fas ${intel.type === 'IP' ? 'fa-network-wired' : 'fa-file-code'}`}></i>
+                        <i className={`fas ${intel.type === 'IP' ? 'fa-network-wired' : 'fa-fingerprint'}`}></i>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-1">
@@ -113,21 +144,21 @@ const ReportCard: React.FC<ReportCardProps> = ({ alert, report, onClose }) => {
 
               {/* Investigation Queries */}
               <section>
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-3">
-                  <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg">
-                    <i className="fas fa-search"></i>
-                  </div>
-                  SIEM / EDR Hunting Queries
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                    <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg">
+                      <i className="fas fa-terminal"></i>
+                    </div>
+                    Live Hunting Commands
+                  </h3>
+                  <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-2 py-1 rounded">PLATFORM-SPECIFIC</span>
+                </div>
                 <div className="space-y-4">
                   {report.investigationQueries.map((query, i) => (
                     <div key={i} className="relative group">
                       <pre className="p-5 bg-slate-950 border border-slate-800 rounded-xl overflow-x-auto text-[13px] text-indigo-300 mono whitespace-pre-wrap">
                         {query}
                       </pre>
-                      <button className="absolute top-4 right-4 p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
-                        <i className="fas fa-copy"></i>
-                      </button>
                     </div>
                   ))}
                 </div>
@@ -138,85 +169,38 @@ const ReportCard: React.FC<ReportCardProps> = ({ alert, report, onClose }) => {
 
         {/* Sidebar Column */}
         <div className="space-y-6">
-          {/* Asset Context Section */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-            <h4 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-widest">Asset Context (CMDB)</h4>
+            <h4 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-widest">Asset Priority</h4>
             {report.assetContext ? (
               <div className="space-y-4">
                 <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-indigo-400">
-                      <i className="fas fa-laptop"></i>
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-white">{report.assetContext.hostname}</p>
-                      <p className="text-[11px] text-slate-500">{report.assetContext.os}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Owner</span>
-                      <span className="text-slate-300">{report.assetContext.owner}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Criticality</span>
-                      <span className={`font-bold ${report.assetContext.criticality === 'Mission Critical' ? 'text-red-400' : 'text-orange-400'}`}>
-                        {report.assetContext.criticality}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Location</span>
-                      <span className="text-slate-300">{report.assetContext.location}</span>
-                    </div>
+                  <p className="text-sm font-bold text-white mb-1">{report.assetContext.hostname}</p>
+                  <p className="text-[11px] text-slate-400 mb-3">{report.assetContext.owner}</p>
+                  <div className={`px-3 py-1 text-center rounded-lg text-xs font-bold ${
+                    report.assetContext.criticality === 'Mission Critical' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {report.assetContext.criticality}
                   </div>
                 </div>
-
-                <div>
-                  <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Vulnerabilities (Qualys)</h5>
-                  <div className="space-y-2">
-                    {report.assetContext.vulnerabilities.map((v, i) => (
-                      <div key={i} className="px-3 py-2 bg-red-500/5 border border-red-500/20 rounded-lg text-[11px] text-red-400 flex items-center gap-2">
-                        <i className="fas fa-bug text-[10px]"></i>
-                        {v}
-                      </div>
-                    ))}
-                  </div>
+                <div className="space-y-2">
+                  {report.assetContext.vulnerabilities.map((v, i) => (
+                    <div key={i} className="flex items-center gap-2 text-[10px] text-red-400 bg-red-400/5 p-2 rounded border border-red-400/10">
+                      <i className="fas fa-biohazard"></i> {v}
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-slate-500 italic">No asset context identified in the alert logs.</p>
+              <p className="text-xs text-slate-500 italic">No asset context detected.</p>
             )}
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl text-center">
             <h4 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-widest">Confidence Score</h4>
-            <div className="flex flex-col items-center gap-2">
-              <div className="relative w-24 h-24">
-                <svg className="w-full h-full transform -rotate-90">
-                  <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-800" />
-                  <circle 
-                    cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" 
-                    className="text-indigo-500"
-                    strokeDasharray={2 * Math.PI * 40}
-                    strokeDashoffset={2 * Math.PI * 40 * (1 - report.confidenceScore)}
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center text-xl font-bold text-white">
-                  {Math.round(report.confidenceScore * 100)}%
-                </div>
-              </div>
+            <div className="text-5xl font-bold text-white mb-1">
+              {Math.round(report.confidenceScore * 100)}<span className="text-indigo-500">%</span>
             </div>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-            <h4 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-widest">MITRE ATT&CK</h4>
-            <div className="flex flex-wrap gap-2">
-              {report.mitreTechniques.map((t, i) => (
-                <span key={i} className="px-3 py-1 bg-slate-950 border border-slate-800 rounded-lg text-[11px] font-medium text-slate-300">
-                  {t}
-                </span>
-              ))}
-            </div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Analyst Certainty</p>
           </div>
         </div>
       </div>

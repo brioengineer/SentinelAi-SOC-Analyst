@@ -1,8 +1,8 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area
+  AreaChart, Area, Cell
 } from 'recharts';
 import { AnalysisHistoryItem, Severity } from '../types';
 
@@ -11,25 +11,36 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ history }) => {
+  const [liveIocs, setLiveIocs] = useState<any[]>([]);
+  const [loadingFeed, setLoadingFeed] = useState(true);
+
+  // Fetch real-time threats from ThreatFox (public API)
+  useEffect(() => {
+    const fetchLiveFeed = async () => {
+      try {
+        const response = await fetch('https://threatfox-api.abuse.ch/api/v1/', {
+          method: 'POST',
+          body: JSON.stringify({ query: 'get_recent', days: 1 })
+        });
+        const data = await response.json();
+        if (data.data) {
+          setLiveIocs(data.data.slice(0, 8));
+        }
+      } catch (err) {
+        console.error("Failed to fetch live threat feed", err);
+      } finally {
+        setLoadingFeed(false);
+      }
+    };
+    fetchLiveFeed();
+  }, []);
+
   const getSeverityDistribution = () => {
     const counts: Record<string, number> = { [Severity.LOW]: 0, [Severity.MEDIUM]: 0, [Severity.HIGH]: 0, [Severity.CRITICAL]: 0 };
     history.forEach(item => {
       counts[item.report.severity]++;
     });
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  };
-
-  const getTimelineData = () => {
-    // Group history by date (last 7 days - mock since history might be small)
-    return [
-      { date: 'Mon', count: 4, threats: 1 },
-      { date: 'Tue', count: 7, threats: 2 },
-      { date: 'Wed', count: 3, threats: 0 },
-      { date: 'Thu', count: history.length > 5 ? history.length : 8, threats: 3 },
-      { date: 'Fri', count: 12, threats: 5 },
-      { date: 'Sat', count: 5, threats: 2 },
-      { date: 'Sun', count: 6, threats: 1 },
-    ];
   };
 
   const COLORS = {
@@ -41,154 +52,97 @@ const Dashboard: React.FC<DashboardProps> = ({ history }) => {
 
   return (
     <div className="space-y-8 animate-fadeIn">
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-          <div className="flex items-center gap-4 mb-2">
-            <div className="p-3 bg-indigo-500/10 text-indigo-500 rounded-xl">
-              <i className="fas fa-bolt"></i>
-            </div>
-            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Alerts Processed</span>
+      {/* Real-Time Status Bar */}
+      <div className="flex items-center justify-between p-4 bg-indigo-600/10 border border-indigo-600/20 rounded-2xl">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center animate-pulse shadow-lg shadow-indigo-600/20">
+            <i className="fas fa-satellite-dish text-white"></i>
           </div>
-          <p className="text-4xl font-bold text-white">{history.length}</p>
-          <p className="text-xs text-emerald-500 mt-2 flex items-center gap-1">
-            <i className="fas fa-arrow-up"></i> 12% from last week
-          </p>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-          <div className="flex items-center gap-4 mb-2">
-            <div className="p-3 bg-red-500/10 text-red-500 rounded-xl">
-              <i className="fas fa-triangle-exclamation"></i>
-            </div>
-            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Critical Threats</span>
-          </div>
-          <p className="text-4xl font-bold text-white">
-            {history.filter(h => h.report.severity === Severity.CRITICAL).length}
-          </p>
-          <p className="text-xs text-slate-500 mt-2">Active triage required</p>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-          <div className="flex items-center gap-4 mb-2">
-            <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl">
-              <i className="fas fa-check-double"></i>
-            </div>
-            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Avg Confidence</span>
-          </div>
-          <p className="text-4xl font-bold text-white">
-            {history.length ? Math.round((history.reduce((acc, h) => acc + h.report.confidenceScore, 0) / history.length) * 100) : 0}%
-          </p>
-          <p className="text-xs text-slate-500 mt-2">Model accuracy rating</p>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-          <div className="flex items-center gap-4 mb-2">
-            <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl">
-              <i className="fas fa-clock"></i>
-            </div>
-            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Time Saved</span>
-          </div>
-          <p className="text-4xl font-bold text-white">{history.length * 45}m</p>
-          <p className="text-xs text-slate-500 mt-2">Est. triage automation</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Severity Distribution */}
-        <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl">
-          <h3 className="text-lg font-bold text-white mb-6 uppercase tracking-widest">Severity Distribution</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={getSeverityDistribution()}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
-                <YAxis stroke="#64748b" fontSize={12} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px' }}
-                  itemStyle={{ color: '#fff' }}
-                />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                  {getSeverityDistribution().map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[entry.name as Severity] || '#6366f1'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          <div>
+            <h4 className="text-sm font-bold text-white">Live Monitoring Active</h4>
+            <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Global Intelligence Feed Connected</p>
           </div>
         </div>
-
-        {/* Alert Volume */}
-        <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl">
-          <h3 className="text-lg font-bold text-white mb-6 uppercase tracking-widest">Alert Volume History</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={getTimelineData()}>
-                <defs>
-                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                <XAxis dataKey="date" stroke="#64748b" fontSize={12} />
-                <YAxis stroke="#64748b" fontSize={12} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px' }}
-                />
-                <Area type="monotone" dataKey="count" stroke="#6366f1" fillOpacity={1} fill="url(#colorCount)" strokeWidth={3} />
-              </AreaChart>
-            </ResponsiveContainer>
+        <div className="flex gap-8 px-6">
+          <div className="text-right">
+            <p className="text-xs text-slate-500 mb-0.5">Uptime</p>
+            <p className="text-sm font-bold text-white">99.98%</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-slate-500 mb-0.5">Engine</p>
+            <p className="text-sm font-bold text-indigo-400">Gemini 3 Pro</p>
           </div>
         </div>
       </div>
 
-      {/* Recent Activity Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
-        <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-          <h3 className="text-lg font-bold text-white uppercase tracking-widest">Recent Detections</h3>
-          <button className="text-indigo-400 hover:text-indigo-300 text-sm font-medium">View Full Logs</button>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Statistics Column */}
+        <div className="lg:col-span-2 space-y-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Triage Volume</p>
+              <p className="text-4xl font-bold text-white">{history.length}</p>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Critical Responses</p>
+              <p className="text-4xl font-bold text-red-500">{history.filter(h => h.report.severity === Severity.CRITICAL).length}</p>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl">
+            <h3 className="text-sm font-bold text-white mb-8 uppercase tracking-widest">Alert Profile</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={getSeverityDistribution()}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                  <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
+                  <YAxis stroke="#64748b" fontSize={11} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '12px' }}
+                  />
+                  <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                    {getSeverityDistribution().map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[entry.name as Severity] || '#6366f1'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-950/50 text-slate-500 text-xs uppercase tracking-widest">
-              <tr>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Alert Title</th>
-                <th className="px-6 py-4">Severity</th>
-                <th className="px-6 py-4">Confidence</th>
-                <th className="px-6 py-4">Timestamp</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {history.slice(0, 5).map((item, i) => (
-                <tr key={i} className="hover:bg-slate-800/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
-                  </td>
-                  <td className="px-6 py-4 font-medium text-slate-200">{item.alert.title}</td>
-                  <td className="px-6 py-4">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                      item.report.severity === Severity.CRITICAL ? 'border-red-500/50 text-red-400' :
-                      item.report.severity === Severity.HIGH ? 'border-orange-500/50 text-orange-400' :
-                      'border-slate-700 text-slate-400'
-                    }`}>
-                      {item.report.severity}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-slate-400">{Math.round(item.report.confidenceScore * 100)}%</td>
-                  <td className="px-6 py-4 text-slate-500 text-xs">{new Date(item.alert.timestamp).toLocaleTimeString()}</td>
-                </tr>
-              ))}
-              {history.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-20 text-center text-slate-500 italic">
-                    No alerts triaged in the last 24 hours.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+
+        {/* Live Global Threat Feed */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+          <div className="p-6 border-b border-slate-800 bg-slate-800/20">
+            <h3 className="text-sm font-bold text-white flex items-center justify-between">
+              GLOBAL THREAT FEED
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              </span>
+            </h3>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {loadingFeed ? (
+              <div className="py-20 text-center">
+                <i className="fas fa-circle-notch fa-spin text-indigo-500 text-2xl"></i>
+              </div>
+            ) : liveIocs.map((ioc, i) => (
+              <div key={i} className="p-3 bg-slate-950 border border-slate-800 rounded-xl hover:bg-slate-800/30 transition-colors">
+                <div className="flex justify-between items-start mb-1">
+                  <span className="text-[10px] font-bold text-indigo-400 uppercase">{ioc.threat_type.replace('_', ' ')}</span>
+                  <span className="text-[9px] text-slate-600 mono">{new Date(ioc.first_seen).toLocaleTimeString()}</span>
+                </div>
+                <p className="text-xs font-medium text-slate-300 truncate mb-1">{ioc.ioc}</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] text-slate-500">Tag: {ioc.tags?.[0] || 'Malicious'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="p-4 bg-slate-800/30 border-t border-slate-800 text-center">
+            <p className="text-[10px] text-slate-500">Source: ThreatFox (Abuse.ch)</p>
+          </div>
         </div>
       </div>
     </div>
